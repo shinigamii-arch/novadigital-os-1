@@ -82,10 +82,27 @@ let dbChannel = null;
 
 async function loadDB(){
   try{
-    const { data, error } = await sb.from('novaos_db').select('data').eq('id', DB_ROW_ID).single();
-    if(error || !data){ DB = defaultDB(); await saveDB(); }
-    else { DB = Object.assign(defaultDB(), data.data); }
-  }catch(e){ DB = defaultDB(); }
+    const { data, error } = await sb.from('novaos_db').select('data').eq('id', DB_ROW_ID).maybeSingle();
+    if(error){
+      // Real read failure (network/RLS/etc) — NEVER overwrite remote data on a guess.
+      // Keep an empty in-memory copy so the app still renders, and warn the user.
+      DB = defaultDB();
+      console.error('loadDB error:', error);
+      setTimeout(()=>{ try{ toast('Datanı yükləmək alınmadı — səhifəni yenilə', 'error'); }catch(e){} }, 500);
+      return;
+    }
+    if(!data){
+      // Row genuinely doesn't exist yet (first-ever run) — create it once.
+      DB = defaultDB();
+      await saveDB();
+      return;
+    }
+    DB = Object.assign(defaultDB(), data.data);
+  }catch(e){
+    DB = defaultDB();
+    console.error('loadDB exception:', e);
+    setTimeout(()=>{ try{ toast('Datanı yükləmək alınmadı — səhifəni yenilə', 'error'); }catch(e){} }, 500);
+  }
 }
 
 async function saveDB(){
