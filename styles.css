@@ -667,8 +667,15 @@ body.theme-light .btn-primary, body.theme-light .ai-msg.user{ color:#fff; }
    ========================================================= */
 #app-loading{
   position:fixed; inset:0; z-index:2000; background:var(--bg); color:var(--text-secondary);
-  display:flex; align-items:center; justify-content:center; font-size:13.5px;
+  display:flex; flex-direction:column; gap:16px; align-items:center; justify-content:center; font-size:13.5px; text-align:center; padding:20px;
 }
+.app-loading-spin{
+  width:34px; height:34px; border-radius:50%; border:3px solid var(--glass-border-strong); border-top-color:var(--violet);
+  animation: app-loading-rotate .7s linear infinite;
+}
+@keyframes app-loading-rotate{ to{ transform:rotate(360deg); } }
+#app-loading-retry{ display:flex; flex-direction:column; gap:10px; align-items:center; }
+#app-loading-retry.hidden{ display:none; }
 #login-gate{
   position:fixed; inset:0; z-index:1500; background:var(--bg);
   display:flex; align-items:center; justify-content:center; padding:20px;
