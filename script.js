@@ -156,10 +156,28 @@ function doLogout(){
 }
 
 async function initAuth(){
-  const { data:{ session } } = await sb.auth.getSession();
-  document.getElementById('app-loading').style.display = 'none';
-  if(session){ await enterApp(); }
-  else{ document.getElementById('login-gate').classList.remove('hidden'); }
+  // If Supabase doesn't respond within 10s (slow/unstable connection), stop
+  // staring at a black screen — show a message and a manual retry button.
+  const loadingTimeout = setTimeout(()=>{
+    const label = document.getElementById('app-loading-label');
+    const retry = document.getElementById('app-loading-retry');
+    if(label) label.textContent = 'Bağlantı gözlənilmədən uzun çəkir...';
+    if(retry) retry.classList.remove('hidden');
+  }, 10000);
+
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    clearTimeout(loadingTimeout);
+    document.getElementById('app-loading').style.display = 'none';
+    if(session){ await enterApp(); }
+    else{ document.getElementById('login-gate').classList.remove('hidden'); }
+  }catch(e){
+    clearTimeout(loadingTimeout);
+    const label = document.getElementById('app-loading-label');
+    const retry = document.getElementById('app-loading-retry');
+    if(label) label.textContent = 'Bağlantı xətası baş verdi.';
+    if(retry) retry.classList.remove('hidden');
+  }
 
   sb.auth.onAuthStateChange((event)=>{
     if(event === 'SIGNED_IN'){ document.getElementById('login-gate').classList.add('hidden'); enterApp(); }
@@ -168,7 +186,18 @@ async function initAuth(){
 
 async function enterApp(){
   document.getElementById('login-gate').classList.add('hidden');
+  document.getElementById('app-loading').style.display = 'flex';
+  const label = document.getElementById('app-loading-label');
+  const retry = document.getElementById('app-loading-retry');
+  if(label) label.textContent = 'Data yüklənir...';
+  if(retry) retry.classList.add('hidden');
+  const stallTimeout = setTimeout(()=>{
+    if(label) label.textContent = 'Data yüklənməsi gözlənilmədən uzun çəkir...';
+    if(retry) retry.classList.remove('hidden');
+  }, 10000);
   await loadDB();
+  clearTimeout(stallTimeout);
+  document.getElementById('app-loading').style.display = 'none';
   startApp();
   startRealtimeSync();
 }
