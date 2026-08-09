@@ -9,7 +9,14 @@
 </head>
 <body>
 
-<div id="app-loading">Yüklənir...</div>
+<div id="app-loading">
+  <div class="app-loading-spin"></div>
+  <div id="app-loading-label">Yüklənir...</div>
+  <div id="app-loading-retry" class="hidden">
+    <p>Bağlantı gözlənilmədən uzun çəkir.</p>
+    <button class="btn-primary" onclick="location.reload()">Yenidən cəhd et</button>
+  </div>
+</div>
 
 <div id="login-gate" class="hidden">
   <div class="login-card">
