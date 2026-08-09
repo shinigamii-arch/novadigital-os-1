@@ -112,6 +112,23 @@ async function saveDB(){
   }catch(e){ toast('Yadda saxlanmadı — internetini yoxla', 'error'); }
 }
 
+/** True while the person is actively typing somewhere (input/textarea/contenteditable).
+ *  Used to stop an incoming realtime update from ripping the DOM out from under
+ *  them mid-keystroke — that was the cause of "yazı yerə düşmür / geri qayıdır". */
+function isTypingSomewhere(){
+  const el = document.activeElement;
+  if(!el) return false;
+  return el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';
+}
+
+/** Debounce helper: only saves after the person pauses typing for `wait`ms,
+ *  instead of hammering the server (and every other device) on every keystroke. */
+function debounce(fn, wait){
+  let t;
+  return function(...args){ clearTimeout(t); t = setTimeout(()=>fn.apply(this,args), wait); };
+}
+const saveDBDebounced = debounce(saveDB, 700);
+
 /** Listens for changes made by OTHER devices/tabs and refreshes what's on screen right now. */
 function startRealtimeSync(){
   if(dbChannel) return;
@@ -119,6 +136,11 @@ function startRealtimeSync(){
     .on('postgres_changes', { event:'*', schema:'public', table:'novaos_db', filter:`id=eq.${DB_ROW_ID}` }, (payload)=>{
       if(!payload.new || !payload.new.data) return;
       DB = Object.assign(defaultDB(), payload.new.data);
+      // Don't rebuild the screen while the person is mid-keystroke — that was
+      // wiping typed text and reverting notes to an older version. The DB is
+      // still updated in memory above, so nothing is lost; we just skip the
+      // disruptive re-render until they're done typing.
+      if(isTypingSomewhere()) return;
       try{ updateNavBadges(); navigate(currentView); }catch(e){}
     })
     .subscribe();
@@ -1217,9 +1239,13 @@ function renderNoteEditor(){
   `;
   hydrateIcons(wrap);
   if(admin){
-    document.getElementById('note-title-input').addEventListener('input', e=>{ n.title=e.target.value; n.updatedAt=nowISO(); saveDB(); renderNoteList(); });
+    document.getElementById('note-title-input').addEventListener('input', e=>{ n.title=e.target.value; n.updatedAt=nowISO(); saveDBDebounced(); renderNoteList(); });
     const body = document.getElementById('note-body');
-    body.addEventListener('input', ()=>{ n.bodyHTML = body.innerHTML; n.updatedAt=nowISO(); saveDB(); });
+    body.addEventListener('input', ()=>{ n.bodyHTML = body.innerHTML; n.updatedAt=nowISO(); saveDBDebounced(); });
+    // If a remote change arrived while typing (and was skipped), sync the
+    // screen back up once the person leaves the field.
+    document.getElementById('note-title-input').addEventListener('blur', ()=>{ saveDB(); if(currentView==='notes') renderNotes(document.getElementById('view-root')); });
+    body.addEventListener('blur', ()=>{ saveDB(); if(currentView==='notes') renderNotes(document.getElementById('view-root')); });
   }
 }
 function fmt(cmd, val){ document.execCommand(cmd, false, val||null); document.getElementById('note-body').focus(); }
